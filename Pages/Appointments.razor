@@ -1,0 +1,257 @@
+@page "/appointments"
+@inject Workshop.Web.Services.ApiService Api
+@inject HttpClient Http
+@implements IAsyncDisposable
+
+<h3>📋 الحجوزات</h3>
+
+<div style="display: flex; gap: 10px; margin-bottom: 20px;">
+    <button style="padding: 8px 16px; cursor: pointer; background-color: @(showWorkshop ? "#28a745" : "#6c757d"); color: white; border: none; border-radius: 5px;" @onclick="() => ShowWorkshop()">
+        🏗️ حجوزات الورشة
+    </button>
+    <button style="padding: 8px 16px; cursor: pointer; background-color: @(!showWorkshop ? "#28a745" : "#6c757d"); color: white; border: none; border-radius: 5px;" @onclick="() => ShowBooking()">
+        📋 طلبات الحجز
+    </button>
+</div>
+
+@if (showWorkshop)
+{
+    <h4>📋 حجوزات الورشة اليومية</h4>
+    @if (appointments == null)
+    {
+        <p>جاري التحميل...</p>
+    }
+    else if (!appointments.Any())
+    {
+        <p>لا توجد حجوزات اليوم</p>
+    }
+    else
+    {
+        <table style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr style="background:#f8f9fa;">
+                    <th style="padding:10px; border:1px solid #dee2e6;">الزبون</th>
+                    <th style="padding:10px; border:1px solid #dee2e6;">الهاتف</th>
+                    <th style="padding:10px; border:1px solid #dee2e6;">الشركة</th>
+                    <th style="padding:10px; border:1px solid #dee2e6;">السيارة</th>
+                    <th style="padding:10px; border:1px solid #dee2e6;">الخدمة</th>
+                    <th style="padding:10px; border:1px solid #dee2e6;">المرآب</th>
+                    <th style="padding:10px; border:1px solid #dee2e6;">الوقت</th>
+                    <th style="padding:10px; border:1px solid #dee2e6;">الحالة</th>
+                    <th style="padding:10px; border:1px solid #dee2e6;">تغيير</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in appointments)
+                {
+                    <tr>
+                        <td style="padding:10px; border:1px solid #dee2e6;">@a.Customer.Name</td>
+                        <td style="padding:10px; border:1px solid #dee2e6;">@a.Customer.Phone</td>
+                        <td style="padding:10px; border:1px solid #dee2e6;">@(a.Customer.CompanyName ?? "-")</td>
+                        <td style="padding:10px; border:1px solid #dee2e6;">@a.Vehicle.Brand @a.Vehicle.Model @a.Vehicle.Year</td>
+                        <td style="padding:10px; border:1px solid #dee2e6;">@a.Service</td>
+                        <td style="padding:10px; border:1px solid #dee2e6;">@a.Garage</td>
+                        <td style="padding:10px; border:1px solid #dee2e6;">@a.AppointmentDate.ToString("HH:mm")</td>
+                        <td style="padding:10px; border:1px solid #dee2e6;">@GetStatusAr(a.Status)</td>
+                        <td style="padding:10px; border:1px solid #dee2e6;">
+                            <select @onchange="e => ChangeStatus(a.Id, e.Value.ToString())">
+                                <option value="0">في الانتظار</option>
+                                <option value="1">مؤكد</option>
+                                <option value="2">جاري العمل</option>
+                                <option value="3">منتهي</option>
+                                <option value="4">ملغي</option>
+                            </select>
+                            <button @onclick="() => UpdateStatus(a.Id)" style="margin-left:5px;">✅</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+else
+{
+    <h4>📋 طلبات الحجز الجديدة</h4>
+    @if (bookings == null)
+    {
+        <p>جاري التحميل...</p>
+    }
+    else if (!bookings.Any())
+    {
+        <p>لا توجد طلبات حجز</p>
+    }
+    else
+    {
+        <table style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr style="background:#f8f9fa;">
+                    <th style="padding:10px; border:1px solid #dee2e6;">العميل</th>
+                    <th style="padding:10px; border:1px solid #dee2e6;">الهاتف</th>
+                    <th style="padding:10px; border:1px solid #dee2e6;">الخدمة</th>
+                    <th style="padding:10px; border:1px solid #dee2e6;">التاريخ</th>
+                    <th style="padding:10px; border:1px solid #dee2e6;">الوقت</th>
+                    <th style="padding:10px; border:1px solid #dee2e6;">رقم الانتظار</th>
+                    <th style="padding:10px; border:1px solid #dee2e6;">الوقت المتوقع</th>
+                    <th style="padding:10px; border:1px solid #dee2e6;">الحالة</th>
+                    <th style="padding:10px; border:1px solid #dee2e6;">إجراء</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var b in bookings)
+                {
+                    <tr>
+                        <td style="padding:10px; border:1px solid #dee2e6;">@b.CustomerName</td>
+                        <td style="padding:10px; border:1px solid #dee2e6;">@b.CustomerPhone</td>
+                        <td style="padding:10px; border:1px solid #dee2e6;">@b.Service</td>
+                        <td style="padding:10px; border:1px solid #dee2e6;">@b.Date</td>
+                        <td style="padding:10px; border:1px solid #dee2e6;">@b.Time</td>
+                        <td style="padding:10px; border:1px solid #dee2e6;">@b.WaitingNumber</td>
+                        <td style="padding:10px; border:1px solid #dee2e6;">@b.EstimatedTime</td>
+                        <td style="padding:10px; border:1px solid #dee2e6;">@b.Status</td>
+                        <td style="padding:10px; border:1px solid #dee2e6;">
+                            <button style="background:#28a745; color:white; border:none; border-radius:5px; padding:5px 10px; cursor:pointer;" @onclick="() => CompleteWork(b.Id)">
+                                ✅ اكتمل
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private bool showWorkshop = true;
+    private List<Workshop.Web.Services.AppointmentDto>? appointments;
+    private List<BookingDto>? bookings;
+    private Dictionary<int, int> statusChanges = new();
+    private PeriodicTimer? _timer;
+    private CancellationTokenSource _cts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWorkshopAppointments();
+        await LoadBookingRequests();
+        
+        // تحديث تلقائي كل ثانية
+        _timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        _ = RunAutoRefresh();
+    }
+
+    private async Task RunAutoRefresh()
+    {
+        try
+        {
+            while (await _timer!.WaitForNextTickAsync(_cts.Token))
+            {
+                await LoadBookingRequests();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task LoadWorkshopAppointments()
+    {
+        try
+        {
+            appointments = await Api.GetTodayAppointments();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"خطأ في تحميل حجوزات الورشة: {ex.Message}");
+            appointments = new List<Workshop.Web.Services.AppointmentDto>();
+        }
+    }
+
+    private async Task LoadBookingRequests()
+    {
+        try
+        {
+            bookings = await Http.GetFromJsonAsync<List<BookingDto>>("http://localhost:5001/api/Booking/all");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"خطأ في تحميل طلبات الحجز: {ex.Message}");
+            bookings = new List<BookingDto>();
+        }
+    }
+
+    private async Task CompleteWork(int id)
+    {
+        try
+        {
+            var response = await Http.PutAsJsonAsync($"http://localhost:5001/api/Booking/complete/{id}", new { });
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadBookingRequests();
+                await LoadWorkshopAppointments();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"خطأ في اكتمال العمل: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"خطأ في اكتمال العمل: {ex.Message}");
+        }
+    }
+
+    private void ShowWorkshop()
+    {
+        showWorkshop = true;
+        StateHasChanged();
+    }
+
+    private void ShowBooking()
+    {
+        showWorkshop = false;
+        StateHasChanged();
+    }
+
+    private void ChangeStatus(int id, string status)
+    {
+        statusChanges[id] = int.Parse(status);
+    }
+
+    private async Task UpdateStatus(int id)
+    {
+        if (statusChanges.ContainsKey(id))
+        {
+            await Api.UpdateAppointmentStatus(id, new { status = statusChanges[id] });
+            await LoadWorkshopAppointments();
+        }
+    }
+
+    private string GetStatusAr(string status) => status switch
+    {
+        "Pending" => "⏳ انتظار",
+        "Confirmed" => "✅ مؤكد",
+        "InProgress" => "🔧 جاري",
+        "Completed" => "🎉 منتهي",
+        "Cancelled" => "❌ ملغي",
+        _ => status
+    };
+
+    public class BookingDto
+    {
+        public int Id { get; set; }
+        public string CustomerName { get; set; } = "";
+        public string CustomerPhone { get; set; } = "";
+        public string Service { get; set; } = "";
+        public string Date { get; set; } = "";
+        public string Time { get; set; } = "";
+        public int WaitingNumber { get; set; }
+        public string EstimatedTime { get; set; } = "";
+        public string Status { get; set; } = "";
+    }
+    
+    public async ValueTask DisposeAsync()
+    {
+        _cts.Cancel();
+        _timer?.Dispose();
+        GC.SuppressFinalize(this);
+    }
+}

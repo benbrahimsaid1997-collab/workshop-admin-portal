@@ -1,0 +1,125 @@
+@page "/garages"
+@inject Workshop.Web.Services.ApiService Api
+
+<h3>🏗️ حالة المرايب</h3>
+
+@if (garages == null)
+{
+    <p>جاري التحميل...</p>
+}
+else
+{
+    <div style="display:flex; gap:20px; flex-wrap:wrap;">
+        @foreach (var garage in garages)
+        {
+            var gId = garage.Id;
+            <div style="border:2px solid @GetColor(garage.StatusColor); 
+                        padding:20px; border-radius:10px; min-width:250px;">
+                <h4>@garage.Name</h4>
+                <p>@garage.Description</p>
+                <p>الحالة: <span style="color:@GetColor(garage.StatusColor)">
+                    @GetStatusAr(garage.Status)
+                </span></p>
+                <p>في الانتظار: @garage.WaitingCount</p>
+                <p>الوقت المتوقع: @garage.EstimatedMinutes دقيقة</p>
+                <hr/>
+                <b>الخدمات:</b>
+                @foreach (var service in garage.Services)
+                {
+                    <p>• @service.Name (@service.EstimatedMinutes دقيقة)</p>
+                }
+                <hr/>
+                <b>تحديث الحالة:</b>
+                <select @onchange="e => SetStatus(gId, e.Value!.ToString()!)">
+                    <option value="0" selected="@(selectedStatuses[gId] == 0)">🟢 شاغر</option>
+                    <option value="1" selected="@(selectedStatuses[gId] == 1)">🟡 جزئي</option>
+                    <option value="2" selected="@(selectedStatuses[gId] == 2)">🔴 مشغول</option>
+                </select>
+                <input type="number"
+                       placeholder="الوقت المتوقع (دقيقة)"
+                       value="@estimatedMinutesMap[gId]"
+                       @oninput="e => estimatedMinutesMap[gId] = int.TryParse(e.Value!.ToString(), out var m) ? m : 0"
+                       style="width:100%; margin-top:5px"/>
+                <button @onclick="() => UpdateStatus(gId)"
+                        style="margin-top:5px; width:100%; padding:8px; 
+                               background:#28a745; color:white; border:none; border-radius:5px;">
+                    💾 حفظ
+                </button>
+                @if (successMessages.ContainsKey(gId) && successMessages[gId])
+                {
+                    <p style="color:green; margin-top:5px;">✅ تم الحفظ</p>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    List<Workshop.Web.Services.GarageDto>? garages;
+    Dictionary<int, int> selectedStatuses = new();
+    Dictionary<int, int> estimatedMinutesMap = new();
+    Dictionary<int, bool> successMessages = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGarages();
+    }
+
+    async Task LoadGarages()
+    {
+        garages = await Api.GetGaragesStatus();
+        if (garages != null)
+        {
+            foreach (var g in garages)
+            {
+                if (!selectedStatuses.ContainsKey(g.Id))
+                    selectedStatuses[g.Id] = g.Status == "Available" ? 0 :
+                                             g.Status == "Partial" ? 1 : 2;
+
+                if (!estimatedMinutesMap.ContainsKey(g.Id))
+                    estimatedMinutesMap[g.Id] = g.EstimatedMinutes;
+            }
+        }
+    }
+
+    void SetStatus(int id, string value)
+    {
+        if (int.TryParse(value, out int status))
+            selectedStatuses[id] = status;
+    }
+
+    async Task UpdateStatus(int id)
+    {
+        await Api.UpdateGarageStatus(id, new
+        {
+            status = selectedStatuses[id],
+            estimatedMinutes = estimatedMinutesMap[id]
+        });
+
+        successMessages[id] = true;
+        StateHasChanged();
+
+        // إعادة تحميل البيانات
+        garages = await Api.GetGaragesStatus();
+
+        await Task.Delay(2000);
+        successMessages[id] = false;
+        StateHasChanged();
+    }
+
+    string GetColor(string color) => color switch
+    {
+        "green" => "#28a745",
+        "yellow" => "#ffc107",
+        "red" => "#dc3545",
+        _ => "#6c757d"
+    };
+
+    string GetStatusAr(string status) => status switch
+    {
+        "Available" => "🟢 شاغر",
+        "Partial" => "🟡 جزئي",
+        "Busy" => "🔴 مشغول",
+        _ => status
+    };
+}

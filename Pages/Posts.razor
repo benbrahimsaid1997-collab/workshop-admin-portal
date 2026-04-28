@@ -1,0 +1,232 @@
+@page "/posts"
+@inject Workshop.Web.Services.ApiService Api
+@using Microsoft.AspNetCore.Components.Forms
+
+<h3>📢 النصائح والمنشورات</h3>
+
+<div style="background:#f8f9fa; padding:20px; border-radius:10px; margin-bottom:20px;">
+    <h5>إضافة منشور جديد</h5>
+    <div style="display:flex; flex-direction:column; gap:10px; max-width:500px;">
+        <input @bind="newTitle" placeholder="العنوان"
+               style="padding:8px; border-radius:5px; border:1px solid #dee2e6;"/>
+
+        <select @bind="newType" @bind:event="oninput"
+                style="padding:8px; border-radius:5px; border:1px solid #dee2e6;">
+            <option value="0">📝 نص</option>
+            <option value="1">🖼️ صورة</option>
+            <option value="2">📹 فيديو</option>
+        </select>
+
+        <textarea @bind="newText" placeholder="النص (اختياري)"
+                  style="padding:8px; border-radius:5px; border:1px solid #dee2e6; height:80px;">
+        </textarea>
+
+        @if (newType == 1)
+        {
+            <div>
+                <label>اختر صورة:</label>
+                <InputFile OnChange="OnImageSelected" accept="image/*" style="padding:5px;"/>
+                @if (previewUrl != null)
+                {
+                    <img src="@previewUrl" style="width:150px; height:150px;
+                              object-fit:cover; border-radius:5px; margin-top:5px; display:block;"/>
+                }
+            </div>
+        }
+
+        @if (newType == 2)
+        {
+            <div>
+                <label>اختر فيديو (MP4 - أقل من 100MB):</label>
+                <InputFile OnChange="OnVideoSelected" accept="video/*" style="padding:5px;"/>
+                @if (!string.IsNullOrEmpty(selectedVideoName))
+                {
+                    <p style="color:#28a745; margin-top:5px;">
+                        ✅ تم اختيار: @selectedVideoName
+                    </p>
+                }
+            </div>
+        }
+
+        <button @onclick="AddPost" disabled="@isUploading"
+                style="padding:8px 20px; background:@(isUploading ? "#6c757d" : "#28a745");
+                       color:white; border:none; border-radius:5px; width:fit-content;">
+            @(isUploading ? "⏳ جاري الرفع..." : "➕ نشر")
+        </button>
+    </div>
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <p style="color:green; margin-top:10px;">@message</p>
+    }
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <p style="color:red; margin-top:10px;">@errorMessage</p>
+    }
+</div>
+
+@if (posts == null)
+{
+    <p>جاري التحميل...</p>
+}
+else if (!posts.Any())
+{
+    <p>لا توجد منشورات بعد</p>
+}
+else
+{
+    <div style="display:flex; gap:15px; flex-wrap:wrap;">
+        @foreach (var p in posts)
+        {
+            <div style="border:1px solid #dee2e6; padding:15px; border-radius:10px;
+                        min-width:250px; max-width:300px;
+                        box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                <h6 style="font-weight:bold;">@p.Title</h6>
+                <small style="color:#6c757d;">@p.CreatedAt.ToString("dd/MM/yyyy HH:mm")</small>
+                @if (!string.IsNullOrEmpty(p.Text))
+                {
+                    <p style="margin-top:8px;">@p.Text</p>
+                }
+                @if (!string.IsNullOrEmpty(p.ImagePath))
+                {
+                    <img src="@p.ImagePath"
+                         style="width:100%; border-radius:5px; margin-top:8px;"/>
+                }
+                @if (!string.IsNullOrEmpty(p.VideoUrl))
+                {
+                    <div style="margin-top:8px;">
+                        <video controls style="width:100%; border-radius:5px;"
+                               preload="metadata">
+                            <source src="@p.VideoUrl" type="video/mp4"/>
+                            <source src="@p.VideoUrl" type="video/webm"/>
+                        </video>
+                    </div>
+                }
+                <button @onclick="() => DeletePost(p.Id)"
+                        style="margin-top:10px; padding:5px 10px;
+                               background:#dc3545; color:white; border:none; border-radius:5px;">
+                    🗑️ حذف
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    List<Workshop.Web.Services.PostDto>? posts;
+    string newTitle = "";
+    string newText = "";
+    int newType = 0;
+    string? previewUrl = null;
+    string? imageUrl = null;
+    string? videoUrl = null;
+    string? selectedVideoName = null;
+    IBrowserFile? selectedImageFile;
+    IBrowserFile? selectedVideoFile;
+    bool isUploading = false;
+    string message = "";
+    string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        posts = await Api.GetPosts();
+    }
+
+    async Task OnImageSelected(InputFileChangeEventArgs e)
+    {
+        selectedImageFile = e.File;
+        var buffer = new byte[selectedImageFile.Size];
+        using var stream = selectedImageFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+        await stream.ReadAsync(buffer);
+        previewUrl = $"data:{selectedImageFile.ContentType};base64,{Convert.ToBase64String(buffer)}";
+        StateHasChanged();
+    }
+
+    void OnVideoSelected(InputFileChangeEventArgs e)
+    {
+        selectedVideoFile = e.File;
+        selectedVideoName = e.File.Name;
+        StateHasChanged();
+    }
+
+    async Task AddPost()
+    {
+        errorMessage = "";
+        message = "";
+
+        if (string.IsNullOrEmpty(newTitle))
+        {
+            errorMessage = "⚠️ يرجى إدخال عنوان المنشور";
+            return;
+        }
+
+        isUploading = true;
+        StateHasChanged();
+
+        try
+        {
+            if (newType == 1 && selectedImageFile != null)
+            {
+                using var stream = selectedImageFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                ms.Position = 0;
+                imageUrl = await Api.UploadImage(ms, selectedImageFile.Name);
+                if (imageUrl == null)
+                {
+                    errorMessage = "⚠️ فشل رفع الصورة";
+                    return;
+                }
+            }
+
+            if (newType == 2 && selectedVideoFile != null)
+            {
+                using var stream = selectedVideoFile.OpenReadStream(maxAllowedSize: 100 * 1024 * 1024);
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                ms.Position = 0;
+                videoUrl = await Api.UploadVideo(ms, selectedVideoFile.Name, selectedVideoFile.ContentType);
+                if (videoUrl == null)
+                {
+                    errorMessage = "⚠️ فشل رفع الفيديو";
+                    return;
+                }
+            }
+
+            await Api.AddPost(new
+            {
+                title = newTitle,
+                text = newText,
+                imagePath = imageUrl,
+                videoUrl = videoUrl,
+                type = newType
+            });
+
+            message = "✅ تم النشر بنجاح";
+            newTitle = "";
+            newText = "";
+            newType = 0;
+            previewUrl = null;
+            imageUrl = null;
+            videoUrl = null;
+            selectedImageFile = null;
+            selectedVideoFile = null;
+            selectedVideoName = null;
+            posts = await Api.GetPosts();
+
+            await Task.Delay(3000);
+            message = "";
+            StateHasChanged();
+        }
+        finally
+        {
+            isUploading = false;
+            StateHasChanged();
+        }
+    }
+
+    async Task DeletePost(int id)
+    {
+        await Api.DeletePost(id);
+        posts = await Api.GetPosts();
+    }
+}

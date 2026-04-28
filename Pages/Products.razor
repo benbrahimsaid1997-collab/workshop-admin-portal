@@ -1,0 +1,173 @@
+@page "/products"
+@inject Workshop.Web.Services.ApiService Api
+@using Microsoft.AspNetCore.Components.Forms
+
+<h3>📦 المنتجات</h3>
+
+<div style="background:#f8f9fa; padding:20px; border-radius:10px; margin-bottom:20px;">
+    <h5>إضافة منتج جديد</h5>
+    <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-start;">
+        <div>
+            <input @bind="newName" placeholder="اسم المنتج"
+                   style="padding:8px; border-radius:5px; border:1px solid #dee2e6; width:200px;"/>
+        </div>
+        <div>
+            <input @bind="newPrice" type="number" placeholder="السعر"
+                   style="padding:8px; border-radius:5px; border:1px solid #dee2e6; width:120px;"/>
+        </div>
+        <div>
+            <InputFile OnChange="OnImageSelected" accept="image/*" style="padding:5px;"/>
+            @if (previewUrl != null)
+            {
+                <img src="@previewUrl" style="width:80px; height:80px;
+                          object-fit:cover; border-radius:5px; margin-top:5px; display:block;"/>
+            }
+        </div>
+        <div>
+            <button @onclick="AddProduct"
+                    style="padding:8px 20px; background:#28a745; color:white;
+                           border:none; border-radius:5px;">
+                ➕ إضافة
+            </button>
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <p style="color:green; margin-top:10px;">@message</p>
+    }
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <p style="color:red; margin-top:10px;">@errorMessage</p>
+    }
+</div>
+
+@if (products == null)
+{
+    <p>جاري التحميل...</p>
+}
+else if (!products.Any())
+{
+    <p>لا توجد منتجات بعد</p>
+}
+else
+{
+    <div style="display:flex; gap:15px; flex-wrap:wrap;">
+        @foreach (var p in products)
+        {
+            <div style="border:1px solid #dee2e6; padding:15px; border-radius:10px;
+                        min-width:200px; max-width:220px; text-align:center;
+                        box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+                @if (!string.IsNullOrEmpty(p.ImagePath))
+                {
+                    <img src="@p.ImagePath"
+                         style="width:120px; height:120px; object-fit:cover; border-radius:8px;"/>
+                }
+                else
+                {
+                    <div style="width:120px; height:120px; background:#f0f0f0;
+                                margin:auto; border-radius:8px; line-height:120px; font-size:40px;">
+                        🛢️
+                    </div>
+                }
+                <h6 style="margin-top:10px; font-weight:bold;">@p.Name</h6>
+                <p style="color:#28a745; font-weight:bold; font-size:18px;">@p.Price دج</p>
+                <p style="font-size:14px;">@(p.IsAvailable ? "✅ متوفر" : "❌ غير متوفر")</p>
+                <div style="display:flex; gap:5px; justify-content:center; margin-top:10px;">
+                    <button @onclick="() => ToggleAvailability(p.Id, p.IsAvailable)"
+                            style="padding:5px 10px; border:none; border-radius:5px;
+                                   background:@(p.IsAvailable ? "#ffc107" : "#28a745"); color:white;">
+                        @(p.IsAvailable ? "إخفاء" : "إظهار")
+                    </button>
+                    <button @onclick="() => DeleteProduct(p.Id)"
+                            style="padding:5px 10px; background:#dc3545;
+                                   color:white; border:none; border-radius:5px;">
+                        🗑️
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    List<Workshop.Web.Services.ProductDto>? products;
+    string newName = "";
+    decimal newPrice = 0;
+    string? previewUrl = null;
+    string? imageUrl = null;
+    IBrowserFile? selectedFile;
+    string message = "";
+    string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        products = await Api.GetProducts();
+    }
+
+    async Task OnImageSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        var buffer = new byte[selectedFile.Size];
+        using var stream = selectedFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+        await stream.ReadAsync(buffer);
+        previewUrl = $"data:{selectedFile.ContentType};base64,{Convert.ToBase64String(buffer)}";
+        StateHasChanged();
+    }
+
+    async Task AddProduct()
+    {
+        errorMessage = "";
+        message = "";
+
+        if (string.IsNullOrEmpty(newName))
+        {
+            errorMessage = "⚠️ يرجى إدخال اسم المنتج";
+            return;
+        }
+
+        if (selectedFile != null)
+        {
+            using var stream = selectedFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            ms.Position = 0;
+            imageUrl = await Api.UploadImage(ms, selectedFile.Name);
+            if (imageUrl == null)
+            {
+                errorMessage = "⚠️ فشل رفع الصورة";
+                return;
+            }
+        }
+
+        await Api.AddProduct(new
+        {
+            name = newName,
+            price = newPrice,
+            imagePath = imageUrl
+        });
+
+        message = "✅ تمت إضافة المنتج بنجاح";
+        newName = "";
+        newPrice = 0;
+        previewUrl = null;
+        imageUrl = null;
+        selectedFile = null;
+        products = await Api.GetProducts();
+
+        await Task.Delay(3000);
+        message = "";
+        StateHasChanged();
+    }
+
+    async Task ToggleAvailability(int id, bool current)
+    {
+        await Api.UpdateAvailability(id, new { isAvailable = !current });
+        products = await Api.GetProducts();
+    }
+
+    async Task DeleteProduct(int id)
+    {
+        await Api.DeleteProduct(id);
+        products = await Api.GetProducts();
+    }
+}

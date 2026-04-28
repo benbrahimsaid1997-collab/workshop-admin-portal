@@ -1,0 +1,77 @@
+@page "/logs"
+@inject Workshop.Web.Services.ApiService Api
+
+<h3>📁 السجل اليومي</h3>
+
+<div style="background:#f8f9fa; padding:20px; border-radius:10px; margin-bottom:20px;">
+    <h5>بحث</h5>
+    <input type="date" value="@searchDate" 
+           @onchange="e => searchDate = e.Value!.ToString()!" 
+           style="margin:5px; padding:8px;"/>
+    <button @onclick="SearchByDate" style="margin:5px; padding:8px 20px;">
+        📅 بحث بالتاريخ
+    </button>
+    <br/>
+    <input @bind="searchName" placeholder="اسم الزبون" style="margin:5px; padding:8px;"/>
+    <button @onclick="SearchByCustomer" style="margin:5px; padding:8px 20px;">
+        👤 بحث بالاسم
+    </button>
+</div>
+
+@if (logs == null)
+{
+    <p>ابحث لعرض السجلات</p>
+}
+else if (!logs.Any())
+{
+    <p>لا توجد سجلات</p>
+}
+else
+{
+    <table style="width:100%; border-collapse:collapse;">
+        <thead>
+            <tr style="background:#f8f9fa;">
+                <th style="padding:10px; border:1px solid #dee2e6;">المرآب</th>
+                <th style="padding:10px; border:1px solid #dee2e6;">الزبون</th>
+                <th style="padding:10px; border:1px solid #dee2e6;">السيارة</th>
+                <th style="padding:10px; border:1px solid #dee2e6;">الخدمة</th>
+                <th style="padding:10px; border:1px solid #dee2e6;">وقت الدخول</th>
+                <th style="padding:10px; border:1px solid #dee2e6;">وقت الخروج</th>
+                <th style="padding:10px; border:1px solid #dee2e6;">التاريخ</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var log in logs)
+            {
+                <tr>
+                    <td style="padding:10px; border:1px solid #dee2e6;">@log.Garage</td>
+                    <td style="padding:10px; border:1px solid #dee2e6;">@log.CustomerName</td>
+                    <td style="padding:10px; border:1px solid #dee2e6;">@log.VehiclePlate</td>
+                    <td style="padding:10px; border:1px solid #dee2e6;">@log.ServiceName</td>
+                    <td style="padding:10px; border:1px solid #dee2e6;">@log.EntryTime.ToString("HH:mm")</td>
+                    <td style="padding:10px; border:1px solid #dee2e6;">
+                        @(log.ExitTime.HasValue ? log.ExitTime.Value.ToString("HH:mm") : "لازال داخل")
+                    </td>
+                    <td style="padding:10px; border:1px solid #dee2e6;">@log.Date.ToString("dd/MM/yyyy")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    List<Workshop.Web.Services.GarageLogDto>? logs;
+    string searchDate = DateTime.Today.ToString("yyyy-MM-dd");
+    string searchName = "";
+
+    async Task SearchByDate()
+    {
+        logs = await Api.GetLogsByDate(searchDate);
+    }
+
+    async Task SearchByCustomer()
+    {
+        if (!string.IsNullOrEmpty(searchName))
+            logs = await Api.SearchByCustomer(searchName);
+    }
+}
