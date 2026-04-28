@@ -2,77 +2,32 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>ورشة السيارات - لوحة التحكم</title>
+    <title>ورشة السيارات</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-        .container {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            max-width: 500px;
-            width: 100%;
-            text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-        h1 { color: #2e7d32; margin-bottom: 10px; }
-        h2 { color: #555; margin-bottom: 30px; font-size: 18px; }
-        .btn-group {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            margin: 30px 0;
-        }
-        button {
-            background: #2e7d32;
-            color: white;
-            border: none;
-            padding: 15px;
-            border-radius: 50px;
-            font-size: 18px;
-            cursor: pointer;
-            transition: transform 0.2s, background 0.2s;
-        }
-        button:hover {
-            background: #1b5e20;
-            transform: scale(1.02);
-        }
+        body { font-family: 'Segoe UI', Arial; text-align: center; padding: 50px; background: #f0f2f5; margin: 0; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        h1 { color: #2e7d32; }
+        button { background: #2e7d32; color: white; border: none; padding: 12px 25px; margin: 8px; border-radius: 25px; font-size: 16px; cursor: pointer; width: 80%; }
+        button:hover { background: #1b5e20; }
         .status { margin-top: 20px; padding: 15px; background: #e8f5e9; border-radius: 10px; }
-        .footer { margin-top: 30px; font-size: 12px; color: #999; }
+        hr { margin: 20px 0; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🚗 ورشة السيارات</h1>
         <h2>لوحة تحكم الموظف</h2>
-        
-        <div class="btn-group">
-            <button onclick="showMessage('المرايب')">🏭 المرايب</button>
-            <button onclick="showMessage('المنشورات')">📢 المنشورات</button>
-            <button onclick="showMessage('المنتجات')">📦 المنتجات</button>
-            <button onclick="showMessage('الحجوزات')">📅 الحجوزات</button>
-        </div>
-        
-        <div class="status" id="status">
-            ✅ الموقع يعمل بنجاح
-        </div>
-        <div class="footer">
-            جميع الحقوق محفوظة © 2025
-        </div>
+        <hr>
+        <button onclick="window.location.href='/garages'">🏭 المرايب</button><br>
+        <button onclick="window.location.href='/posts'">📢 المنشورات</button><br>
+        <button onclick="window.location.href='/products'">📦 المنتجات</button><br>
+        <button onclick="window.location.href='/bookings'">📅 الحجوزات</button>
+        <div class="status" id="status">✅ الموقع يعمل بنجاح</div>
+        <p style="font-size: 12px; color: gray;">جميع الحقوق محفوظة © 2025</p>
     </div>
-
     <script>
-        function showMessage(page) {
-            document.getElementById('status').innerHTML = `🔄 جاري تحميل ${page}...<br><br>⚠️ هذه الخدمة قيد التطوير`;
-        }
+        // رسالة ترحيب
+        console.log("موقع ورشة السيارات يعمل");
     </script>
 </body>
 </html>
